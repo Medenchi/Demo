@@ -215,9 +215,9 @@
   </div>
 
   <!-- Часть 2 — JS вставь ниже -->
-<script>
+  <script>
 /* ===================== БАЗА ===================== */
-const VERSION='6.3-responsive'; // не меняем, чтобы не терять сохранённые чаты
+const VERSION='6.3-responsive'; // не меняем, чтобы не потерять сохранённые чаты
 const DEFAULT_DATA = {
   masters:["Анна","Ольга","Мария"],
   services:[
@@ -274,7 +274,10 @@ let app = {
   data: clone(DEFAULT_DATA),
   booking:{},
   bookings:[],
-  chats:{ client:[], admin:[] }
+  chats:{ client:[], admin:[] },
+
+  // Новое: запоминаем, какой клиентский экран был последним
+  ui: { clientLastView:'client_yandex', adminLastView:'admin_tg' }
 };
 
 /* ===================== ИНИЦИАЛИЗАЦИЯ ===================== */
@@ -284,13 +287,30 @@ function init(){
   const slug = slugify(name);
   const saved = loadState(slug);
 
-  if(saved){ app = saved; app.studio.name=name; app.studio.slug=slug; }
-  else{
+  if(saved){
+    app = saved;
+    app.studio.name=name; app.studio.slug=slug;
+    if(!app.ui) app.ui = { clientLastView:'client_yandex', adminLastView:'admin_tg' }; // миграция старых сохранений
+  }else{
     app.studio = { name, slug };
     pushClientBot('Здравствуйте! Я бот записи студии. Чем могу помочь?');
     app.clientState='main_menu';
+    app.ui = { clientLastView:'client_yandex', adminLastView:'admin_tg' };
     saveState();
   }
+  renderAll();
+}
+
+/* ===================== НАВИГАЦИЯ (фикс “слёта” экрана клиента) ===================== */
+// Единая функция перехода, которая ещё и запоминает последний клиентский экран
+function go(view){
+  app.currentView = view;
+  if(view==='client_tg' || view==='client_yandex'){
+    app.ui.clientLastView = view;
+  }else if(view==='admin_tg'){
+    app.ui.adminLastView = view;
+  }
+  saveState();
   renderAll();
 }
 
@@ -376,7 +396,7 @@ function renderChat(who){ // 'client' | 'admin'
   qs('#send').onclick=()=>{
     const v=inp.value.trim(); if(!v) return;
     if(who==='client'){ pushClientUser(v); pushClientBot('Спасибо! Вы можете воспользоваться меню ниже.'); }
-    else { pushAdminUser(v); pushClientBot('Администратор: ' + v); }
+    else { pushAdminUser(v); pushClientBot('Администратор: ' + v); /* уведомление клиенту => чат актуален */ app.ui.clientLastView='client_tg'; saveState(); }
     inp.value=''; saveState(); renderChat(who);
   };
 
@@ -463,7 +483,7 @@ function buildKb(who){
 
 /* ===================== ДЕЙСТВИЯ ===================== */
 function clientAction(action, data){
-  if(action==='to_yx'){ app.currentView='client_yandex'; saveState(); renderAll(); return; }
+  if(action==='to_yx'){ go('client_yandex'); return; }
   if(action==='state'){
     app.clientState=data;
     if(data==='services') pushClientBot('Наш прайс:\n\n'+app.data.services.map(s=>`• ${s.name}: ${s.price}₽`).join('\n'));
@@ -505,9 +525,14 @@ function adminAction(action, data){
     pushAdminBot( b.status==='approved'
       ? `✅ Заявка подтверждена\n${b.master} • ${b.date} ${b.time}`
       : `❌ Заявка отклонена` );
+    // Сообщаем клиенту и фиксируем, что следующий заход на “Клиента” должен открыть чат
     pushClientBot( b.status==='approved'
       ? `✅ Ваша запись подтверждена!\n${b.master} • ${b.date} ${b.time}`
       : `❌ К сожалению, заявка отклонена.` );
+    app.ui.clientLastView = 'client_tg';
+    saveState();
+
+    // Обновляем мета у карточки в админ-чате
     for(let i=app.chats.admin.length-1;i>=0;i--){
       const m=app.chats.admin[i]; if(m.meta && m.meta.type==='booking' && m.meta.id===b.id){ m.meta.status=b.status; break; }
     }
@@ -522,16 +547,12 @@ function pushAdminBot(text,meta){ app.chats.admin.push({id:Date.now()+Math.rando
 function pushAdminUser(text){ app.chats.admin.push({id:Date.now()+Math.random(), role:'client', text, ts:Date.now()}); saveState(); }
 
 /* ===================== UI: Переключатели, кнопки ===================== */
-qs('#sw-client').onclick=()=>{
-  if(app.currentView==='admin_tg'){
-    app.currentView = app.clientState==='main_menu' ? 'client_yandex' : 'client_tg';
-  }else{
-    app.currentView = 'client_yandex';
-  }
-  saveState(); renderAll();
-};
-qs('#sw-admin').onclick=()=>{ app.currentView='admin_tg'; saveState(); renderAll(); };
-qs('#open-tg').onclick=()=>{ app.currentView='client_tg'; saveState(); renderAll(); };
+// Теперь “Клиент” всегда открывает последний клиентский экран (после решения заявки — чат)
+qs('#sw-client').onclick=()=>{ go(app.ui?.clientLastView || 'client_tg'); };
+// “Администратор” — всегда админский чат
+qs('#sw-admin').onclick=()=>{ go('admin_tg'); };
+// Кнопка “Записаться онлайн” — сразу в клиентский чат и запоминаем его
+qs('#open-tg').onclick=()=>{ go('client_tg'); };
 
 // Пустышки-футера
 qs('#route').onclick=()=>alert('Демо: адрес скрыт.');
