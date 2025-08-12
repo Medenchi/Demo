@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CRM-симулятор</title>
+  <style>
+    :root{
+      /* Цвета */
+      --yx-bg:#15181d; --yx-surface:#1b1f26; --yx-card:#1f2430; --yx-text:#f1f4f8; --yx-muted:#9aa3b2;
+      --yx-accent:#7fd45b; --yx-link:#89b8ff; --yx-chip:#262c37; --yx-divider:#2b3140;
+      --tg-bg:#0e1116; --tg-header:#161a22; --tg-bot:#262c37; --tg-user:#3b2f26;
+      --tg-muted:#a4aab6; --tg-btn:#2a3140; --tg-green:#45c46f; --tg-red:#ef5350;
+
+      --radius:16px; --radius-lg:22px;
+      --max-phone: 480px;
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; background:#0c0f14; color:#fff;
+      font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,Arial,sans-serif;
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      padding:clamp(8px, 2vw, 16px);
+      gap:clamp(10px, 1.5vh, 16px);
+    }
+
+    /* Контейнер приложения (адаптив под телефоны) */
+    .app-root{
+      width:min(100%, var(--max-phone));
+      height:calc(100dvh - clamp(12px, 3vh, 28px)*2);
+      min-height:540px;
+      background:var(--yx-bg);
+      border-radius:var(--radius-lg);
+      overflow:hidden;
+      box-shadow:0 18px 60px rgba(0,0,0,.6), inset 0 0 1px rgba(255,255,255,.06);
+      display:flex; flex-direction:column;
+    }
+
+    /* Переключатель ролей */
+    .switch{display:flex; gap:10px; width:min(100%, var(--max-phone))}
+    .sw{flex:1; padding:12px 14px; border-radius:12px; border:1px solid #343a48; background:#222634; color:#fff; cursor:pointer; font-weight:600}
+    .sw.active{background:var(--yx-link); color:#10151c; border-color:var(--yx-link)}
+
+    /* Экраны */
+    .screen{flex:1; display:none}
+    .screen.visible{display:flex; flex-direction:column; min-height:0}
+
+    /* “Яндекс”-экран (без фото-шапки и без кнопки переименования) */
+    .yx-toolbar{
+      background:linear-gradient(180deg, #131720, #10141a);
+      border-bottom:1px solid var(--yx-divider);
+      height:48px; display:flex; align-items:center; justify-content:center;
+      padding:0 12px;
+    }
+    .toolbar-title{font-weight:700; font-size:clamp(14px, 3.8vw, 16px)}
+    .yx-scroll{flex:1; overflow:auto; padding:12px}
+    .yx-scroll::-webkit-scrollbar{width:6px} .yx-scroll::-webkit-scrollbar-thumb{background:#2a2e3a; border-radius:4px}
+
+    .yx-title-card{
+      background:var(--yx-card); border-radius:18px; padding:14px; box-shadow:0 8px 18px rgba(0,0,0,.35);
+      display:flex; gap:12px; align-items:center; margin-bottom:10px;
+    }
+    .ava{width:48px; height:48px; border-radius:12px; background:#2a3140; display:flex; align-items:center; justify-content:center; font-weight:800}
+    .yx-title h1{margin:0; font-size:clamp(18px, 5vw, 22px)}
+    .rating{display:flex; gap:8px; align-items:center; color:#ffd54f; font-size:clamp(12px, 3.6vw, 14px)}
+    .rating span{color:var(--yx-muted)}
+    .action{display:flex; gap:10px; margin:12px 0}
+    .yx-btn{flex:1; padding:14px; border:none; border-radius:14px; background:var(--yx-accent); color:#10151a; font-weight:800; cursor:pointer}
+
+    .chips{display:flex; gap:8px; overflow:auto; padding-bottom:4px}
+    .chip{background:var(--yx-chip); border:1px solid var(--yx-divider); color:#c9d0dc; padding:8px 12px; border-radius:999px; white-space:nowrap; user-select:none}
+
+    .card{background:var(--yx-surface); border:1px solid var(--yx-divider); border-radius:16px; padding:12px; margin:10px 0}
+    .card-title{font-weight:800; margin-bottom:6px}
+    .muted{color:var(--yx-muted); font-size:clamp(12px, 3.5vw, 13px)}
+    .busy{display:grid; grid-template-columns:repeat(12,1fr); gap:6px; align-items:end; height:60px}
+    .busy div{background:#333a4a; border-radius:4px}
+
+    .yx-footer{
+      display:flex; justify-content:space-around; align-items:center; height:52px;
+      background:#121722; border-top:1px solid var(--yx-divider);
+    }
+    .foot-btn{background:none; border:none; color:var(--yx-link); font-weight:600; cursor:pointer}
+
+    /* Телеграм-экран */
+    .tg-header{
+      height:54px; background:var(--tg-header); border-bottom:1px solid #232a3a;
+      display:flex; align-items:center; gap:10px; padding:0 12px;
+    }
+    .tg-ava{width:34px; height:34px; border-radius:50%; background:#2b3140; display:flex; align-items:center; justify-content:center; font-weight:800}
+    .tg-title{display:flex; flex-direction:column}
+    .tg-title b{font-size:clamp(13px, 3.8vw, 15px)}
+    .tg-title span{font-size:clamp(11px, 3.3vw, 12px); color:var(--tg-muted)}
+
+    .chat{flex:1; overflow:auto; padding:12px; background:var(--tg-bg)}
+    .chat::-webkit-scrollbar{width:6px} .chat::-webkit-scrollbar-thumb{background:#2a2f3b; border-radius:4px}
+
+    .msg{margin:8px 0; display:flex}
+    .msg.bot{justify-content:flex-start}
+    .msg.user{justify-content:flex-end}
+    .bubble{max-width:85%; padding:10px 12px; border-radius:18px; line-height:1.4; font-size:clamp(14px, 3.8vw, 15px); white-space:pre-wrap}
+    .msg.bot .bubble{background:var(--tg-bot); border-bottom-left-radius:6px}
+    .msg.user .bubble{background:var(--tg-user); border-bottom-right-radius:6px}
+
+    .kb{border-top:1px solid #232a3a; padding:10px; background:var(--tg-bg)}
+    .grid{display:grid; gap:8px}
+    .grid.cols-3{grid-template-columns:repeat(3, 1fr)}
+    .tbtn{background:var(--tg-btn); color:#fff; padding:12px; border:none; border-radius:12px; cursor:pointer}
+    .tbtn.ok{background:var(--tg-green); color:#111}
+    .tbtn.no{background:var(--tg-red)}
+
+    .inline-actions{display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:8px}
+
+    .inputbar{display:flex; gap:8px; padding:8px 10px; border-top:1px solid #232a3a; background:var(--tg-header)}
+    .in{flex:1; background:#1b2130; border:1px solid #2a3140; border-radius:14px; color:#fff; padding:10px 12px; font-size:16px}
+    .send{background:var(--yx-link); color:#111; border:none; padding:10px 14px; border-radius:12px; font-weight:800; cursor:pointer}
+
+    @media (min-width: 700px){
+      body{padding:24px 20px}
+      .switch{gap:12px}
+    }
+  </style>
+</head>
+<body>
+  <div class="app-root" id="app">
+    <!-- Экран “Яндекс” -->
+    <section id="screen-yx" class="screen visible">
+      <div class="yx-toolbar">
+        <div class="toolbar-title">Карточка</div>
+      </div>
+
+      <div class="yx-scroll">
+        <div class="yx-title-card">
+          <div class="ava" id="yx-ava">ST</div>
+          <div class="yx-title">
+            <h1 id="yx-title">Студия</h1>
+            <div class="rating"><div>★★★★★</div><span>5,0 • 290 оценок</span></div>
+          </div>
+        </div>
+
+        <div class="action">
+          <button class="yx-btn" id="open-tg">🕒 Записаться онлайн</button>
+        </div>
+
+        <div class="chips">
+          <div class="chip">Обзор</div>
+          <div class="chip">Товары и услуги</div>
+          <div class="chip">Фото</div>
+          <div class="chip">Отзывы</div>
+          <div class="chip">О нас</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Адрес</div>
+          <div class="muted">— адрес скрыт (демо)</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Контакты</div>
+          <div class="muted">Телефон: —</div>
+          <div class="muted">Сайт: —</div>
+          <div class="muted">WhatsApp: —</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Часы работы</div>
+          <div class="muted">Ежедневно 10:00–21:00 (демо)</div>
+          <div style="height:10px"></div>
+          <div class="muted">Загруженность</div>
+          <div class="busy" id="busy"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Отзывы</div>
+          <div class="muted">Отзывы скрыты (демо)</div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">Услуги</div>
+          <div class="muted" id="svc">—</div>
+        </div>
+      </div>
+
+      <div class="yx-footer">
+        <button class="foot-btn" id="route">🗺️ Маршрут</button>
+        <button class="foot-btn" id="call">📞 Позвонить</button>
+        <button class="foot-btn" id="share">↪️ Поделиться</button>
+      </div>
+    </section>
+
+    <!-- Экран “Telegram” -->
+    <section id="screen-tg" class="screen">
+      <div class="tg-header">
+        <div class="tg-ava" id="tg-ava">ST</div>
+        <div class="tg-title">
+          <b id="tg-title">Запись • Студия</b>
+          <span id="tg-sub">бот онлайн</span>
+        </div>
+      </div>
+
+      <div class="chat" id="chat"></div>
+      <div class="kb" id="kb"></div>
+      <div class="inputbar">
+        <input id="inp" class="in" placeholder="Напишите сообщение..." />
+        <button id="send" class="send">Отпр.</button>
+      </div>
+    </section>
+  </div>
+
+  <div class="switch">
+    <button id="sw-client" class="sw active">Клиент</button>
+    <button id="sw-admin" class="sw">Администратор</button>
+  </div>
+
+  <!-- Часть 2 — JS вставь ниже -->
+<script>
+/* ===================== БАЗА ===================== */
+const VERSION='6.3-responsive'; // не меняем, чтобы не терять сохранённые чаты
+const DEFAULT_DATA = {
+  masters:["Анна","Ольга","Мария"],
+  services:[
+    {name:"Стрижка женская (короткие)", price:1500},
+    {name:"Стрижка женская (средние)", price:2000},
+    {name:"Стрижка женская (длинные)", price:2500},
+    {name:"Стрижка мужская (модельная)", price:1200},
+    {name:"Стрижка детская", price:800},
+    {name:"Окрашивание (1 тон)", price:4000},
+    {name:"Укладка", price:1500},
+    {name:"Маникюр с покрытием", price:2000},
+  ],
+  schedule:{} // master -> date -> [time]
+};
+const qs=(s,r=document)=>r.querySelector(s);
+const qsa=(s,r=document)=>[...r.querySelectorAll(s)];
+const clone=(o)=>JSON.parse(JSON.stringify(o));
+const slugify=s=>(s||'studio').toString().trim().toLowerCase()
+  .normalize('NFD').replace(/\p{Diacritic}/gu,'').replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'');
+const initials = (n)=> n.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('').toUpperCase() || 'ST';
+
+/* ===================== НАЗВАНИЕ И ССЫЛКИ ===================== */
+function detectName(){
+  const p=new URLSearchParams(location.search);
+  if(location.hash.length>1) return decodeURIComponent(location.hash.slice(1)); // #Название
+  if(p.get('n')) return p.get('n'); // ?n=Название
+  // последний сегмент пути (если не index.html)
+  const segs=location.pathname.split('/').filter(Boolean);
+  const last=segs[segs.length-1];
+  if(last && !/\.[a-z]+$/i.test(last) && last.toLowerCase()!=='index') return decodeURIComponent(last);
+  return null;
+}
+
+/* ===================== ХРАНИЛИЩЕ ===================== */
+function loadState(slug){
+  try{
+    const raw=localStorage.getItem('crm:'+slug);
+    if(!raw) return null;
+    const st=JSON.parse(raw);
+    return st.version===VERSION ? st : null;
+  }catch(e){ return null; }
+}
+function saveState(){ localStorage.setItem('crm:'+app.studio.slug, JSON.stringify(app)); }
+
+/* ===================== СОСТОЯНИЕ ===================== */
+let app = {
+  version: VERSION,
+  studio: { name: 'Студия', slug: 'studio' },
+  currentView: 'client_yandex', // client_yandex | client_tg | admin_tg
+  client: { id:'u'+Math.random().toString(36).slice(2,7), name:'Гость' },
+
+  clientState:'main_menu',
+  adminState:'main_menu',
+  data: clone(DEFAULT_DATA),
+  booking:{},
+  bookings:[],
+  chats:{ client:[], admin:[] }
+};
+
+/* ===================== ИНИЦИАЛИЗАЦИЯ ===================== */
+document.addEventListener('DOMContentLoaded', init);
+function init(){
+  const name = detectName() || 'Студия';
+  const slug = slugify(name);
+  const saved = loadState(slug);
+
+  if(saved){ app = saved; app.studio.name=name; app.studio.slug=slug; }
+  else{
+    app.studio = { name, slug };
+    pushClientBot('Здравствуйте! Я бот записи студии. Чем могу помочь?');
+    app.clientState='main_menu';
+    saveState();
+  }
+  renderAll();
+}
+
+/* ===================== РЕНДЕР ===================== */
+function renderAll(){
+  // Переключатель ролей
+  qs('#sw-client').classList.toggle('active', app.currentView.startsWith('client'));
+  qs('#sw-admin').classList.toggle('active', app.currentView.startsWith('admin'));
+
+  // “Яндекс”-экран
+  renderYx();
+
+  // Телеграм
+  if(app.currentView==='client_tg') renderChat('client');
+  if(app.currentView==='admin_tg') renderChat('admin');
+
+  // Показ нужного экрана
+  show(app.currentView==='client_yandex' ? 'screen-yx' : 'screen-tg');
+}
+
+function show(id){
+  qsa('.screen').forEach(s=>s.classList.remove('visible'));
+  qs('#'+id).classList.add('visible');
+}
+
+function renderYx(){
+  qs('#yx-title').textContent = app.studio.name;
+  qs('#tg-title').textContent = 'Запись • ' + app.studio.name;
+  const init = initials(app.studio.name);
+  qs('#yx-ava').textContent = init;
+  qs('#tg-ava').textContent = init;
+
+  // Демографик “загруженности” (демо)
+  const b=qs('#busy'); b.innerHTML='';
+  Array.from({length:12},()=>10+Math.random()*80|0).forEach(h=>{
+    const d=document.createElement('div'); d.style.height=h+'%'; b.appendChild(d);
+  });
+
+  // Услуги (демо)
+  qs('#svc').textContent = app.data.services.map(s=>`${s.name} — ${s.price}₽`).join(' • ');
+}
+
+/* ===================== ЧАТ (Телеграм) ===================== */
+function renderChat(who){ // 'client' | 'admin'
+  const chat=qs('#chat'); const kb=qs('#kb'); const inp=qs('#inp');
+  chat.innerHTML=''; kb.innerHTML='';
+  qs('#tg-sub').textContent = who==='client' ? 'бот онлайн' : 'панель администратора';
+
+  // История
+  app.chats[who].forEach(m=>{
+    const wrap=document.createElement('div');
+    wrap.className='msg ' + (m.role==='client' ? 'user' : 'bot');
+    const bub=document.createElement('div');
+    bub.className='bubble';
+    bub.textContent = m.text;
+    wrap.appendChild(bub);
+
+    // Кнопки на заявке в админ-чате
+    if(who==='admin' && m.meta && m.meta.type==='booking' && m.meta.status==='pending'){
+      const actions=document.createElement('div');
+      actions.className='inline-actions';
+      const ok=btn('✓ Подтвердить','ok',()=>adminAction('approve', m.meta.id));
+      const no=btn('✕ Отклонить','no',()=>adminAction('decline', m.meta.id));
+      actions.append(ok,no);
+      bub.appendChild(actions);
+    }
+    chat.appendChild(wrap);
+  });
+
+  // Клавиатура
+  const k = buildKb(who);
+  if(k){
+    const grid=document.createElement('div');
+    grid.className='grid ' + (k.cols ? `cols-${k.cols}` : '');
+    k.buttons.flat().forEach(bd=>{
+      const b=btn(bd.text, bd.style, ()=> (who==='client'?clientAction:adminAction)(bd.action, bd.data));
+      grid.appendChild(b);
+    });
+    kb.appendChild(grid);
+  }
+
+  // Отправка из инпута
+  qs('#send').onclick=()=>{
+    const v=inp.value.trim(); if(!v) return;
+    if(who==='client'){ pushClientUser(v); pushClientBot('Спасибо! Вы можете воспользоваться меню ниже.'); }
+    else { pushAdminUser(v); pushClientBot('Администратор: ' + v); }
+    inp.value=''; saveState(); renderChat(who);
+  };
+
+  chat.scrollTop = chat.scrollHeight;
+
+  function btn(text, style, fn){
+    const b=document.createElement('button');
+    b.className='tbtn ' + (style||'');
+    b.textContent=text; b.onclick=fn;
+    return b;
+  }
+}
+
+/* ===================== КЛАВИАТУРЫ ===================== */
+function buildKb(who){
+  if(who==='client'){
+    switch(app.clientState){
+      case 'main_menu':
+        return {buttons:[
+          [{text:'📅 Записаться онлайн', action:'state', data:'booking_master'}],
+          [{text:'💅 Услуги и цены', action:'state', data:'services'}],
+          [{text:'📍 Адрес и как добраться', action:'state', data:'address'}],
+          [{text:'↩️ На “карты”', action:'to_yx'}]
+        ]};
+      case 'services':
+        return {buttons:[[ {text:'⬅️ Назад', action:'state', data:'main_menu'} ]]};
+      case 'address':
+        return {buttons:[[ {text:'⬅️ Назад', action:'state', data:'main_menu'} ]]};
+      case 'booking_master': {
+        const rows = app.data.masters.map(m=>[{text:m, action:'pick_master', data:m}]);
+        rows.push([{text:'⬅️ Назад', action:'state', data:'main_menu'}]);
+        return {buttons:rows};
+      }
+      case 'booking_date': {
+        const rows=[];
+        for(let i=0;i<5;i++){ const d=new Date(); d.setDate(d.getDate()+i);
+          rows.push([{text:d.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}), action:'pick_date', data:d.toISOString().slice(0,10)}]);
+        }
+        rows.push([{text:'⬅️ Назад', action:'state', data:'booking_master'}]);
+        return {buttons:rows};
+      }
+      case 'booking_time': {
+        const m=app.booking.master, d=app.booking.date;
+        const times=((app.data.schedule[m]||{})[d]||[]);
+        const rows = times.length ? times.map(t=>[{text:t, action:'pick_time', data:t}]) : [];
+        if(!rows.length) pushClientBot('Нет свободных окошек на выбранный день. Попробуйте другой.');
+        rows.push([{text:'⬅️ Назад', action:'state', data:'booking_date'}]);
+        return {buttons:rows};
+      }
+    }
+  }else{
+    switch(app.adminState){
+      case 'main_menu':
+        return {buttons:[
+          [{text:'🗓 Управление расписанием', action:'state', data:'sched_master'}],
+          [{text:'🧹 Сбросить демо', action:'reset'}]
+        ]};
+      case 'sched_master': {
+        const rows = app.data.masters.map(m=>[{text:m, action:'sched_pick_master', data:m}]);
+        rows.push([{text:'⬅️ Назад', action:'state', data:'main_menu'}]);
+        return {buttons:rows};
+      }
+      case 'sched_date': {
+        const rows=[];
+        for(let i=0;i<7;i++){ const d=new Date(); d.setDate(d.getDate()+i);
+          rows.push([{text:d.toLocaleDateString('ru-RU',{weekday:'long',day:'numeric',month:'long'}), action:'sched_pick_date', data:d.toISOString().slice(0,10)}]);
+        }
+        rows.push([{text:'⬅️ Назад', action:'state', data:'sched_master'}]);
+        return {buttons:rows};
+      }
+      case 'sched_time': {
+        const m=app.adminMaster, d=app.adminDate;
+        const schedule=(app.data.schedule[m]||{})[d]||[];
+        const all=["10:00","11:00","12:00","13:00","14:00","15:00","16:00","17:00","18:00","19:00","20:00"];
+        const btns=all.map(t=>({text: t+(schedule.includes(t)?' ✓':''), action:'sched_toggle', data:t}));
+        const grid=[]; for(let i=0;i<btns.length;i+=3) grid.push(btns.slice(i,i+3));
+        grid.push([{text:'⬅️ Назад', action:'state', data:'sched_date'}]);
+        return {buttons:grid, cols:3};
+      }
+    }
+  }
+  return null;
+}
+
+/* ===================== ДЕЙСТВИЯ ===================== */
+function clientAction(action, data){
+  if(action==='to_yx'){ app.currentView='client_yandex'; saveState(); renderAll(); return; }
+  if(action==='state'){
+    app.clientState=data;
+    if(data==='services') pushClientBot('Наш прайс:\n\n'+app.data.services.map(s=>`• ${s.name}: ${s.price}₽`).join('\n'));
+    if(data==='address')  pushClientBot('Адрес скрыт (демо). Мы работаем ежедневно 10:00–21:00.');
+    if(data==='main_menu') pushClientBot('Главное меню. Чем помочь?');
+  }
+  if(action==='pick_master'){ app.booking={master:data}; app.clientState='booking_date'; pushClientBot(`Мастер: ${data}. Выберите дату:`); }
+  if(action==='pick_date'){ app.booking.date=data; app.clientState='booking_time'; pushClientBot(`Дата: ${data}. Выберите время:`); }
+  if(action==='pick_time'){
+    app.booking.time=data;
+    const b={ id:Date.now(), clientId:app.client.id, clientName:app.client.name, master:app.booking.master, date:app.booking.date, time:app.booking.time, status:'pending' };
+    app.bookings.push(b);
+    pushClientBot('Спасибо! Заявка отправлена администратору.');
+    pushAdminBot(`❗️ Новая заявка\nКлиент: ${b.clientName}\nМастер: ${b.master}\nКогда: ${b.date} ${b.time}`, {type:'booking', id:b.id, status:'pending'});
+    app.clientState='main_menu'; app.booking={};
+  }
+  saveState(); renderChat('client');
+}
+
+function adminAction(action, data){
+  if(action==='reset'){ if(confirm('Сбросить демо и очистить все данные?')){ localStorage.removeItem('crm:'+app.studio.slug); location.reload(); } return; }
+  if(action==='state'){
+    app.adminState=data;
+    if(data==='sched_master') pushAdminBot('Выберите мастера для редактирования расписания.');
+  }
+  if(action==='sched_pick_master'){ app.adminState='sched_date'; app.adminMaster=data; pushAdminBot(`Редактирование: ${data}. Выберите дату.`); }
+  if(action==='sched_pick_date'){ app.adminState='sched_time'; app.adminDate=data; pushAdminBot(`Включайте/выключайте слоты на ${data}.`); }
+  if(action==='sched_toggle'){
+    const m=app.adminMaster, d=app.adminDate, t=data;
+    if(!app.data.schedule[m]) app.data.schedule[m]={};
+    if(!app.data.schedule[m][d]) app.data.schedule[m][d]=[];
+    const arr=app.data.schedule[m][d]; const i=arr.indexOf(t);
+    if(i>-1) arr.splice(i,1); else arr.push(t);
+    pushAdminBot(`Слот ${t} — ${i>-1?'выключен':'включен'}.`);
+  }
+  if(action==='approve' || action==='decline'){
+    const b=app.bookings.find(x=>x.id===data); if(!b) return;
+    b.status = action==='approve' ? 'approved' : 'declined';
+    pushAdminBot( b.status==='approved'
+      ? `✅ Заявка подтверждена\n${b.master} • ${b.date} ${b.time}`
+      : `❌ Заявка отклонена` );
+    pushClientBot( b.status==='approved'
+      ? `✅ Ваша запись подтверждена!\n${b.master} • ${b.date} ${b.time}`
+      : `❌ К сожалению, заявка отклонена.` );
+    for(let i=app.chats.admin.length-1;i>=0;i--){
+      const m=app.chats.admin[i]; if(m.meta && m.meta.type==='booking' && m.meta.id===b.id){ m.meta.status=b.status; break; }
+    }
+  }
+  saveState(); renderChat('admin');
+}
+
+/* ===================== СООБЩЕНИЯ ===================== */
+function pushClientBot(text,meta){ app.chats.client.push({id:Date.now()+Math.random(), role:'bot', text, ts:Date.now(), meta}); saveState(); }
+function pushClientUser(text){ app.chats.client.push({id:Date.now()+Math.random(), role:'client', text, ts:Date.now()}); saveState(); }
+function pushAdminBot(text,meta){ app.chats.admin.push({id:Date.now()+Math.random(), role:'bot', text, ts:Date.now(), meta}); saveState(); }
+function pushAdminUser(text){ app.chats.admin.push({id:Date.now()+Math.random(), role:'client', text, ts:Date.now()}); saveState(); }
+
+/* ===================== UI: Переключатели, кнопки ===================== */
+qs('#sw-client').onclick=()=>{
+  if(app.currentView==='admin_tg'){
+    app.currentView = app.clientState==='main_menu' ? 'client_yandex' : 'client_tg';
+  }else{
+    app.currentView = 'client_yandex';
+  }
+  saveState(); renderAll();
+};
+qs('#sw-admin').onclick=()=>{ app.currentView='admin_tg'; saveState(); renderAll(); };
+qs('#open-tg').onclick=()=>{ app.currentView='client_tg'; saveState(); renderAll(); };
+
+// Пустышки-футера
+qs('#route').onclick=()=>alert('Демо: адрес скрыт.');
+qs('#call').onclick=()=>alert('Демо: телефон скрыт.');
+qs('#share').onclick=()=>{
+  const base = location.origin + location.pathname.replace(/\/[^\/]*$/,'/'); // каталог
+  const link = base + 'index.html#' + encodeURIComponent(app.studio.name);
+  navigator.clipboard.writeText(link).then(()=>alert('Ссылка скопирована:\n'+link)).catch(()=>alert(link));
+};
+</script>
+</body>
+</html>
